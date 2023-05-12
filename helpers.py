@@ -47,8 +47,8 @@ def piece_states_initializer(piece_list_init, game_id):
 
         result[piece['id']] = []
 
-        for state in piece_states_value_set:
-            result[piece['id']].append({"id": piece['id'], "size": piece['size'], "value": state})
+        for i, state in enumerate(piece_states_value_set):
+            result[piece['id']].append({"id": piece['id'], "size": piece['size'], "value": state, "state_id": f'{piece["id"]}-{i}'})
 
     return result
 

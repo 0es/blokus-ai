@@ -23,6 +23,8 @@ class Board(object):
         self.piece_set = set(range(1, len(piece_list_init) + 1))
         self.piece_states = piece_states_initializer(copy.deepcopy(piece_list_init), game_id)
 
+        self.piece_state_point_invalid = {}
+
     # 获取棋子的全部状态
     def piece_states_by_id(self, piece_id):
         return self.piece_states[piece_id]
@@ -32,12 +34,18 @@ class Board(object):
 
     # 判断落子位置是否合法
     def is_valid(self, piece, point):
+        state_id = piece['state_id']
         piece_value = piece['value']
 
+        def set_invalid_cache():
+            if state_id not in self.piece_state_point_invalid:
+                self.piece_state_point_invalid[state_id] = set()
+
+            self.piece_state_point_invalid[state_id].add(point)
+
         # 超界
-        if point[0] + piece_value.shape[0] > board_size:
-            return False
-        if point[1] + piece_value.shape[1] > board_size:
+        if point[0] + piece_value.shape[0] > board_size or point[1] + piece_value.shape[1] > board_size:
+            set_invalid_cache()
             return False
 
         # 规则判断
@@ -55,7 +63,7 @@ class Board(object):
         for piece in positions:
             for i in range(-1, 2):
                 for j in range(-1, 2):
-                    # 如果扩展位超出棋盘则跳过
+                    # 如果扩展位超出棋盘则跳过该位置
                     if piece[0] + i < 0 or piece[1] + j < 0 or piece[0] + i >= board_size or piece[1] + j >= board_size:
                         continue
 
@@ -81,17 +89,19 @@ class Board(object):
         state_mine = np.where(_state == self.game_id, _state, 0)
         state_other = np.where(_state == self.game_id, 0, _state)
 
-        # 无效位置不能有棋子
-        for position in invalid_positions:
-            # 不能覆盖别人的棋子
-            if position in positions:
-                if state_other[position] != 0:
-                    return False
-
-            if state_mine[position] != 0:
+        # 不能覆盖别人的棋子
+        for position in positions:
+            if state_other[position[0]][position[1]] != 0:
+                set_invalid_cache()
                 return False
 
-        # 有效位置必须有棋子
+        # 无效位置不能有自己的棋子
+        for position in invalid_positions:
+            if state_mine[position] != 0:
+                set_invalid_cache()
+                return False
+
+        # 有效位置必须有自己的棋子
         for position in valid_positions:
             if state_mine[position] != 0:
                 return True
@@ -124,6 +134,11 @@ class Board(object):
             for point_y in range(board_size):
                 for piece_state in piece_state_list:
                     point = (point_x, point_y)
+                    state_id = piece_state['state_id']
+
+                    # 先取缓存
+                    if state_id in self.piece_state_point_invalid and point in self.piece_state_point_invalid[state_id]:
+                        continue
 
                     # 判断是否合法
                     if self.is_valid(piece_state, point):
