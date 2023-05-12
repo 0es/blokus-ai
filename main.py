@@ -1,6 +1,6 @@
 import numpy as np
 from constant import state_init, piece_list_init, board_size
-from helpers import piece_states_initializer
+from helpers import piece_states_initializer, flip180
 import matplotlib.pyplot as plt
 import time
 import copy
@@ -17,8 +17,8 @@ def plt_draw(board):
 class Board(object):
     def __init__(self, game_id):
         self.game_id = game_id
-        self.last_state = copy.deepcopy(state_init)
-        self.state = copy.deepcopy(state_init)
+        self.last_state = []
+        self.state = []
 
         self.piece_set = set(range(1, len(piece_list_init) + 1))
         self.piece_states = piece_states_initializer(copy.deepcopy(piece_list_init), game_id)
@@ -26,6 +26,9 @@ class Board(object):
     # 获取棋子的全部状态
     def piece_states_by_id(self, piece_id):
         return self.piece_states[piece_id]
+
+    def piece_size_by_id(self, piece_id):
+        return self.piece_states[piece_id][0]['size']
 
     # 判断落子位置是否合法
     def is_valid(self, piece, point):
@@ -72,14 +75,25 @@ class Board(object):
 
         invalid_positions = list(set(all_positions) - set(valid_positions))
 
+        # 开始判断
+        # 分离局面
+        _state = self.state
+        state_mine = np.where(_state == self.game_id, _state, 0)
+        state_other = np.where(_state == self.game_id, 0, _state)
+
         # 无效位置不能有棋子
         for position in invalid_positions:
-            if self.state[position] != 0:
+            # 不能覆盖别人的棋子
+            if position in positions:
+                if state_other[position] != 0:
+                    return False
+
+            if state_mine[position] != 0:
                 return False
 
         # 有效位置必须有棋子
         for position in valid_positions:
-            if self.state[position] != 0:
+            if state_mine[position] != 0:
                 return True
 
         return False
@@ -115,15 +129,19 @@ class Board(object):
                     if self.is_valid(piece_state, point):
                         valid_fall_list.append({ 'piece': piece_state, 'point': point })
 
-        print(f'合理下法数量: {len(valid_fall_list)}')
+        print(f'[player{self.game_id}] 合理下法: {len(valid_fall_list)}')
 
-        if len(valid_fall_list) == 0:
-            return
+        if len(valid_fall_list) != 0:
+            # 随机一种下法
+            valid_fall = random.choice(valid_fall_list)
+            self.fall(valid_fall['piece'], valid_fall['point'])
 
-        # 随机一种下法
-        valid_fall = random.choice(valid_fall_list)
-        self.fall(valid_fall['piece'], valid_fall['point'])
+        return len(valid_fall_list)
 
+    # 保存局面
+    def save_state(self, state):
+        self.last_state = copy.deepcopy(self.state)
+        self.state = copy.deepcopy(state)
 
     # 落子
     def fall(self, piece, point):
@@ -135,7 +153,7 @@ class Board(object):
         # 删除该棋子
         self.piece_set.remove(piece['id'])
 
-    # 模拟落子棋盘
+    # 模拟空白棋盘落子
     def sim_fall(self, piece, point):
         piece_value = piece['value']
         state = copy.deepcopy(state_init)
@@ -144,36 +162,85 @@ class Board(object):
         return state
 
 class Game(object):
-    def __init__(self, game_id):
+    def __init__(self, game_id, player_num=1):
         self.id = game_id
+        self.player_num = player_num
         self.board = Board(self.id)
         self.game_start = False
-        self.winner = None
 
     def graphic(self):
-        plt_draw(self.board.state)
+        state = self.board.state
+
+        if self.id == 2:
+            state = flip180(state)
+
+        plt_draw(state)
 
     # 游戏进行 需要互传局面
-    def goon(self):
+    def goon(self, state):
+        # 先设置局面
+        if self.player_num == 2:
+            state = flip180(state)
+
+        self.board.save_state(state)
+        self.graphic()
+
         if self.game_start == False:
             self.board.go_hand()
             self.game_start = True
         else:
-            self.board.random_hand()
+            if self.board.random_hand() == 0:
+                # 计算剩余棋子 last_size少的获胜
+                last_size = 0
+
+                for piece_id in self.board.piece_set:
+                    last_size += self.board.piece_size_by_id(piece_id)
+
+                return (self.board.state, 1, last_size)
 
         self.graphic()
 
-        return self.board.state
+        return (self.board.state, 0, 0)
 
 
 
 if __name__ == '__main__':
     plt.ion()
-    game1 = Game(1)
-    # game2 = Game(2)
-    state_buffer = []
 
-    # 模拟20步
-    for i in range(20):
-        state_buffer = game1.goon()
-        # state_buffer = game2.goon()
+    players = (1, 2)
+    state_buffer = copy.deepcopy(state_init)
+    games = []
+    scores = {}
+
+    for player in players:
+        games.append(Game(player, len(players)))
+
+    # 开始模拟
+    class Getoutofloop(Exception):
+        pass
+
+    try:
+        while 1:
+            for game in games:
+                (state_buffer, end, last_size) = game.goon(state_buffer)
+
+                if end != 0:
+                    scores[game.id] = last_size
+
+                    if len(scores) == len(players):
+                        raise Getoutofloop()
+    except Getoutofloop:
+        for player in players:
+            print(f'[player{player}] 剩余棋子数: {scores[player]}')
+
+        min_value = min(scores.values())
+        min_players = [k for k, v in scores.items() if v == min_value]
+
+        if len(min_players) == 1:
+            print(f'获胜者为player{min_players[0]}')
+        else:
+            print(f'平局')
+
+        pass
+    finally:
+        print('游戏结束')
