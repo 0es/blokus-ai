@@ -1,5 +1,4 @@
 import numpy as np
-from helpers import piece_states_initializer
 
 board_size = 14
 
@@ -29,5 +28,3 @@ piece_list_init = [
     {"id": 21, "size": 1, "value": [[1]]},
 ]
 piece_list_init = [{k: np.array(v) if k == 'value' else v for k,v in d.items()} for d in piece_list_init]
-
-piece_states_init = piece_states_initializer(piece_list_init)

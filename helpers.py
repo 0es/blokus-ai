@@ -32,12 +32,13 @@ def remove_duplicates_2d_array(arrays_list):
 
     return unique_arrays
 
-def piece_states_initializer(piece_list_init):
+def piece_states_initializer(piece_list_init, game_id):
     result = {}
 
     for piece in piece_list_init:
-        piece_value = piece['value']
-        piece_value_t = piece['value'].transpose()
+        _piece_value = piece['value']
+        piece_value = np.where(_piece_value == 1, game_id, _piece_value)
+        piece_value_t = piece_value.transpose()
         piece_states_value = [
             piece_value, flip90_right(piece_value), flip180(piece_value), flip90_left(piece_value),
             piece_value_t, flip90_right(piece_value_t), flip180(piece_value_t), flip90_left(piece_value_t)

@@ -1,5 +1,6 @@
 import numpy as np
-from constant import state_init, piece_list_init, board_size, piece_states_init
+from constant import state_init, piece_list_init, board_size
+from helpers import piece_states_initializer
 import matplotlib.pyplot as plt
 import time
 import copy
@@ -12,11 +13,6 @@ def plt_draw(board):
     plt.draw()
     plt.pause(1)
 
-# 获取棋子的全部状态
-def piece_states(piece):
-    piece_id = piece['id']
-    return piece_states_init[piece_id]
-
 # 棋盘逻辑控制
 class Board(object):
     def __init__(self, game_id):
@@ -24,8 +20,12 @@ class Board(object):
         self.last_state = copy.deepcopy(state_init)
         self.state = copy.deepcopy(state_init)
 
-        _piece_list = copy.deepcopy(piece_list_init)
-        self.piece_list = [{k: np.where(v == 1, game_id, v) if k == 'value' else v for k,v in d.items()} for d in _piece_list]
+        self.piece_set = set(range(1, len(piece_list_init) + 1))
+        self.piece_states = piece_states_initializer(copy.deepcopy(piece_list_init), game_id)
+
+    # 获取棋子的全部状态
+    def piece_states_by_id(self, piece_id):
+        return self.piece_states[piece_id]
 
     # 判断落子位置是否合法
     def is_valid(self, piece, point):
@@ -88,8 +88,8 @@ class Board(object):
     def go_hand(self):
         piece_state_list = []
 
-        for _piece in self.piece_list:
-            piece_state_list.extend(list(filter(lambda x: x['value'][0][0] == self.game_id, piece_states(_piece))))
+        for piece_id in self.piece_set:
+            piece_state_list.extend(list(filter(lambda x: x['value'][0][0] == self.game_id, self.piece_states_by_id(piece_id))))
 
         piece = random.choice(piece_state_list)
         self.fall(piece, [0, 0])
@@ -99,8 +99,8 @@ class Board(object):
         piece_state_list = []
 
         # 遍历棋子状态
-        for _piece in self.piece_list:
-            piece_state_list.extend(piece_states(_piece))
+        for piece_id in self.piece_set:
+            piece_state_list.extend(self.piece_states_by_id(piece_id))
 
         valid_fall_list = []
 
@@ -133,7 +133,7 @@ class Board(object):
         self.state[point[0]:(point[0] + piece_value.shape[0]), point[1]:(point[1] + piece_value.shape[1])] = piece_value
 
         # 删除该棋子
-        self.piece_list = [x for x in self.piece_list if x["id"] != piece["id"]]
+        self.piece_set.remove(piece['id'])
 
     # 模拟落子棋盘
     def sim_fall(self, piece, point):
