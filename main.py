@@ -163,7 +163,9 @@ class Board(object):
         piece_value = piece['value']
 
         self.last_state = copy.deepcopy(self.state)
-        self.state[point[0]:(point[0] + piece_value.shape[0]), point[1]:(point[1] + piece_value.shape[1])] = piece_value
+
+        nonzero_idx = np.nonzero(piece_value)
+        self.state[point[0] + nonzero_idx[0], point[1] + nonzero_idx[1]] = piece_value[nonzero_idx]
 
         # 删除该棋子
         self.piece_set.remove(piece['id'])

@@ -1,7 +1,7 @@
 import numpy as np
 
-board_size = 6
-# board_size = 14
+# board_size = 6
+board_size = 14
 
 state_init = np.zeros([board_size, board_size], dtype=int)
 
